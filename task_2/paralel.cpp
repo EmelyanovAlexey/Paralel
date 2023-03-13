@@ -38,8 +38,8 @@ int main(int argc, char *argv[])
     // init
     for (int i = 1; i < n * n; i++)
     {
-        arr[i] = 0;
-        arrNew[i] = 0;
+        arr[i] = 20;
+        arrNew[i] = 20;
     }
 
     // края
