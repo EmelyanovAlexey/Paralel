@@ -77,21 +77,21 @@ int main(int argc, char *argv[])
     //     std::cout << " \n";
     // }
 
-// #pragma acc enter data copyin(error, arr [0:(n * n)], arrNew [0:(n * n)])
+#pragma acc enter data copyin(error, arr [0:(n * n)], arrNew [0:(n * n)])
     {
 
         while (cntIteration < MAX_ITERATION && error > ACCURACY)
         {
-            // if (cntIteration % 10 == 0)
-            // {
-// #pragma acc kernels async(0)
+            if (cntIteration % 10 == 0)
+            {
+#pragma acc kernels async(0)
                 error = 0;
-// #pragma acc update device(error) async(0)
-            // }
+#pragma acc update device(error) async(0)
+            }
 
-// #pragma acc data present(arrNew, arr, error)
-// #pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max \
-//                                                                                                           : error) async(0)
+#pragma acc data present(arrNew, arr, error)
+#pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max \
+                                                                                                          : error) async(0)
             for (size_t i = 1; i < n - 1; i++)
             {
                 for (size_t j = 1; j < n - 1; j++)
@@ -100,12 +100,12 @@ int main(int argc, char *argv[])
                     error = fmax(error, fabs(arrNew[i * n + j] - arr[i * n + j]));
                 }
             }
-            // if (cntIteration % 10 == 0)
-            // {
-// #pragma acc update host(error) async(0)
+            if (cntIteration % 10 == 0)
+            {
+#pragma acc update host(error) async(0)
 
-// #pragma acc wait(0)
-            // }
+#pragma acc wait(0)
+            }
             cntIteration++;
             double *copy = arr;
             arr = arrNew;
