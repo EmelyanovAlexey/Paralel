@@ -5,14 +5,13 @@
 #include <iomanip>
 #include <stdlib.h>
 #include <openacc.h>
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
-#include "cublas_v2.h"
+#include <cublas_v2.h>
 
 constexpr double ANGLE1 = 10;
 constexpr double ANGLE2 = 20;
 constexpr double ANGLE3 = 30;
 constexpr double ANGLE4 = 20;
+constexpr double negOne = -1;
 
 int main(int argc, char *argv[])
 {
@@ -21,6 +20,12 @@ int main(int argc, char *argv[])
     double ACCURACY = 0;
     double error = 1.0;
     int cntIteration = 0;
+    int max_idx = 0;
+    int cntUpdate = 0;
+
+    cublasStatus_t status;
+    cublasHandle_t handle;
+    cublasCreate(&handle);
 
     // считываем с командной строки
     for (int arg = 1; arg < argc; arg++)
@@ -35,8 +40,9 @@ int main(int argc, char *argv[])
 
     // определяем наши шаги по рамкам
     double dt = 10 / ((double)n - 1);
-    double *arr = new double[n * n];    // работаем с данным массивом
-    double *arrNew = new double[n * n]; // для записи резульата
+    double *arr = new double[n * n];
+    double *arrNew = new double[n * n];
+    double *inter = new double[n * n];
 
     // init
     for (int i = 1; i < n * n; i++)
@@ -71,41 +77,46 @@ int main(int argc, char *argv[])
         arrNew[n * (n - 1) + i + 1] = arrNew[n * (n - 1) + i] + dt;
     }
 
-#pragma acc enter data copyin(error, arr [0:(n * n)], arrNew [0:(n * n)])
+#pragma acc enter data copyin(arrNew[:n * n], arr[:n * n], inter[:n * n])
+    while (cntIteration < MAX_ITERATION && error > ACCURACY)
     {
-
-        while (cntIteration < MAX_ITERATION && error > ACCURACY)
+#pragma acc parallel loop collapse(2) present(arrNew[:n * n], arr[:n * n]) vector_length(128) async
+        for (size_t i = 1; i < n - 1; i++)
         {
-            if (cntIteration % 10 == 0)
+            for (size_t j = 1; j < n - 1; j++)
             {
-#pragma acc kernels async(0)
-                error = 0;
-#pragma acc update device(error) async(0)
+                arrNew[i * n + j] = 0.25 * (arr[(i + 1) * n + j] + arr[(i - 1) * n + j] + arr[i * n + j - 1] + arr[i * n + j + 1]);
+                error = fmax(error, fabs(arrNew[i * n + j] - arr[i * n + j]));
             }
+        }
+        double *copy = arr;
+        arr = arrNew;
+        arrNew = copy;
 
-#pragma acc data present(arrNew, arr, error)
-#pragma acc parallel loop independent collapse(2) vector vector_length(256) gang num_gangs(256) reduction(max \
-                                                                                                          : error) async(0)
-            for (size_t i = 1; i < n - 1; i++)
+        if (cntUpdate >= 200 && cntIteration < MAX_ITERATION)
+        {
+
+#pragma acc data present(inter[:n * n], arrNew[:n * n], arr[:n * n]) wait
             {
-                for (size_t j = 1; j < n - 1; j++)
+#pragma acc host_data use_device(arrNew, arr, inter)
                 {
-                    arrNew[i * n + j] = 0.25 * (arr[(i + 1) * n + j] + arr[(i - 1) * n + j] + arr[i * n + j - 1] + arr[i * n + j + 1]);
-                    error = fmax(error, fabs(arrNew[i * n + j] - arr[i * n + j]));
+                    status = cublasDcopy(handle, n * n, arr, 1, inter, 1); // копирование
+                    if(status != CUBLAS_STATUS_SUCCESS) exit(5);
+                    status = cublasDaxpy(handle, n * n, &negOne, arrNew, 1, inter, 1); // сумма
+                    if(status != CUBLAS_STATUS_SUCCESS) exit(6);
+                    status = cublasIdamax(handle, n * n, inter, 1, &max_idx); // мах
+                    if(status != CUBLAS_STATUS_SUCCESS) exit(7);
                 }
             }
-            if (cntIteration % 10 == 0)
-            {
-#pragma acc update host(error) async(0)
 
-#pragma acc wait(0)
-            }
-            cntIteration++;
-            double *copy = arr;
-            arr = arrNew;
-            arrNew = copy;
+#pragma acc update self(inter[max_idx])
+            error = fabs(inter[max_idx]);
+            cntUpdate = 0;
         }
+        cntIteration++;
+        cntUpdate++;
     }
+
     std::cout << "iteration: " << cntIteration << " \n"
               << "error: " << error << "\n";
     delete[] arr;
