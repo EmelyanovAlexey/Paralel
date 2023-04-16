@@ -86,7 +86,6 @@ int main(int argc, char *argv[])
             for (size_t j = 1; j < n - 1; j++)
             {
                 arrNew[i * n + j] = 0.25 * (arr[(i + 1) * n + j] + arr[(i - 1) * n + j] + arr[i * n + j - 1] + arr[i * n + j + 1]);
-                error = fmax(error, fabs(arrNew[i * n + j] - arr[i * n + j]));
             }
         }
         double *copy = arr;
