@@ -9,7 +9,6 @@
 #include <cmath>
 #include <ctime>
 #include <string>
-#include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cub/cub.cuh>
 
@@ -132,12 +131,12 @@ int main(int argc, char *argv[])
 
     // размерность блоков и грида
     dim3 blockDim = dim3(32, 32);
+    std::cout << blockDim.x << blockDim.y << blockDim.z << std::endl;
     dim3 gridDim = dim3((n+blockDim.x-1)/blockDim.x,(n+blockDim.y-1)/blockDim.y);
 
     while (cntIteration < MAX_ITERATION && error > ACCURACY)
     {
         cntIteration++;
-
         calculate<<<n - 1, n - 1>>>(CudaArr, CudaNewArr); // расчет матрицы
 
         // рaсчитываем ошибку

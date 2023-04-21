@@ -14,6 +14,17 @@ constexpr double ANGLE3 = 30;
 constexpr double ANGLE4 = 20;
 constexpr double negOne = -1;
 
+void printMatrix(double &arr, int n) {
+    for (size_t i = 0; i < n; i++)
+    {
+        for (size_t j = 0; j < n; j++)
+        {
+            std::cout << arr[i * n + j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     int n = 0;
@@ -24,7 +35,6 @@ int main(int argc, char *argv[])
     int max_idx = 0; // индекс максимального элемента
     int cntUpdate = 0; // счетчик обновлений ошибки
 
-    cublasStatus_t status; // переменная для хранения статуса выполнения функций из CUBLAS
     cublasHandle_t handle; // дескриптор CUBLAS
     cublasCreate(&handle); // инициализация дескриптора CUBLAS
 
@@ -47,8 +57,8 @@ int main(int argc, char *argv[])
 
     for (int i = 1; i < n * n; i++)
     {
-        arr[i] = 20;
-        arrNew[i] = 20;
+        arr[i] = 0;
+        arrNew[i] = 0;
     }
 
     // края
@@ -77,6 +87,9 @@ int main(int argc, char *argv[])
         arrNew[n * (n - 1) + i + 1] = arrNew[n * (n - 1) + i] + dt;
     }
 
+
+    printMatrix(*arr);
+
 // Копирование массивов arrNew, arr и inter на устройство для использования в расчетах
 #pragma acc enter data copyin(arrNew[:n * n], arr[:n * n], inter[:n * n])
     while (cntIteration < MAX_ITERATION && error > ACCURACY)
@@ -104,9 +117,9 @@ int main(int argc, char *argv[])
 #pragma acc host_data use_device(arrNew, arr, inter)
 // Использование устройства для выполнения CUBLAS-функций на CPU
                 {
-                    status = cublasDcopy(handle, n * n, arr, 1, inter, 1); // Копирование массива arr в inter с помощью CUBLAS-функции
-                    status = cublasDaxpy(handle, n * n, &negOne, arrNew, 1, inter, 1); // Вычисление разности между arrNew и arr и сохранение результата в inter с помощью CUBLAS-функции
-                    status = cublasIdamax(handle, n * n, inter, 1, &max_idx); // Нахождение индекса максимального элемента в inter с помощью CUBLAS-функции
+                    cublasDcopy(handle, n * n, arr, 1, inter, 1); // Копирование массива arr в inter с помощью CUBLAS-функции
+                    cublasDaxpy(handle, n * n, &negOne, arrNew, 1, inter, 1); // Вычисление разности между arrNew и arr и сохранение результата в inter с помощью CUBLAS-функции
+                    cublasIdamax(handle, n * n, inter, 1, &max_idx); // Нахождение индекса максимального элемента в inter с помощью CUBLAS-функции
                 }
             }
 
