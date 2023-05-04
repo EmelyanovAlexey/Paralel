@@ -18,46 +18,39 @@ constexpr double ANGLE2 = 20;
 constexpr double ANGLE3 = 30;
 constexpr double ANGLE4 = 20;
 
-// функция для переращета нашей матрицы уравнения теплопроводности
-__global__ void calculate(double *arr, double *newArr)
+// функция, обновляющая значения сетки
+__global__ void calculate(double *A, double *Anew, int size)
 {
-    size_t i = blockIdx.x;
-    size_t j = threadIdx.x;
-    size_t size = blockDim.x + 1;
-
-    if (i != 0 && i != size - 1 && j != 0 && j != size - 1)
+    int j = blockIdx.x * blockDim.x + threadIdx.x;
+    int i = blockIdx.y * blockDim.y + threadIdx.y;
+    if (j < size - 1 && j > 0 && i > 0 && i < size - 1)
     {
-        newArr[i * size + j] = 0.25 * (arr[i * size + j - 1] + arr[(i - 1) * size + j] +
-                                       arr[(i + 1) * size + j] + arr[i * size + j + 1]);
+        double left = A[i * size + j - 1];
+        double right = A[i * size + j + 1];
+        double top = A[(i - 1) * size + j];
+        double bottom = A[(i + 1) * size + j];
+        Anew[i * size + j] = 0.25 * (left + right + top + bottom);
     }
 }
 
-// функция для получение разнец между массивами
-__global__ void getDifference(double *arr, double *newArr, double *difArr)
+// функция нахождения разности двух массивов
+__global__ void getDifference(double *A, double *Anew, double *res, int size)
 {
-    int blockIndex = blockIdx.x + gridDim.y * blockIdx.y;
-    int threadIndex = threadIdx.x + threadIdx.y * blockDim.x;
-
-    int arrayIndex = blockIndex * blockDim.x * blockDim.y + threadIndex;
-    int gridX = gridDim.x * blockDim.x;
-    int gridY = gridDim.y * blockDim.y;
-    int i = arrayIndex / gridX;
-    int j = arrayIndex % gridY;
-    if (i != 0 && i != gridY - 1 && j != 0 && j != gridX - 1)
-    {
-        difArr[i * gridX + j] = std::abs(arr[i * gridX + j] - newArr[i * gridX + j]);
-    }
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    int j = blockIdx.y * blockDim.y + threadIdx.y;
+    if (i >= 0 && i < size && j >= 0 && j < size)
+        res[i * size + j] = Anew[i * size + j] - A[i * size + j];
 }
 
 int main(int argc, char *argv[])
 {
-    int n = 0;             // размер
-    int MAX_ITERATION = 0; // максимальное число итераций
-    double ACCURACY = 0;   // точность
-    double error = 1.0;    // ошибка
-    int cntIteration = 0;  // количество итераций
-    size_t tempStorageBytes = 0;
-    double *tempStorage = NULL;
+    int n = 0;                   // размер
+    int MAX_ITERATION = 0;       // максимальное число итераций
+    double ACCURACY = 0;         // точность
+    double error = 1.0;          // ошибка
+    int cntIteration = 0;        // количество итераций
+    size_t tempStorageBytes = 0; // размер выделенной памяти для d_temp_storage
+    double *tempStorage = NULL;  // доступное для устройства выделение временного хранилища
 
     // считываем с командной строки
     for (int arg = 1; arg < argc; arg++)
@@ -79,8 +72,8 @@ int main(int argc, char *argv[])
     // инициализация масива и копии массива
     for (int i = 1; i < n * n; i++)
     {
-        arr[i] = 20;
-        arrNew[i] = 20;
+        arr[i] = 0;
+        arrNew[i] = 0;
     }
 
     // заполнение краев рамок нашей матрицы и матрицы клона
@@ -131,29 +124,65 @@ int main(int argc, char *argv[])
 
     // размерность блоков и грида
     dim3 blockDim = dim3(32, 32);
-    std::cout << blockDim.x << blockDim.y << blockDim.z << std::endl;
-    dim3 gridDim = dim3((n+blockDim.x-1)/blockDim.x,(n+blockDim.y-1)/blockDim.y);
+    dim3 gridDim = dim3((n + blockDim.x - 1) / blockDim.x, (n + blockDim.y - 1) / blockDim.y);
+
+    // ---------------------
+    cudaStream_t stream;
+    cudaStreamCreate(&stream);
+
+    bool graphCreated = false;
+    cudaGraph_t graph;
+    cudaGraphExec_t instance;
+    // ---------------------
 
     while (cntIteration < MAX_ITERATION && error > ACCURACY)
     {
         cntIteration++;
-        calculate<<<n - 1, n - 1>>>(CudaArr, CudaNewArr); // расчет матрицы
 
-        // рaсчитываем ошибку
-        if (cntIteration % 100 == 0)
+        // если граф не создан, то создаем с помощью захвата цикла for
+        if (!graphCreated)
         {
-            // вычисления разницы
-            getDifference<<<gridDim, blockDim>>>(CudaArr, CudaNewArr, CudaDifArr);
-            // нахождение максимума в разнице матрицы
-            cub::DeviceReduce::Max(tempStorage, tempStorageBytes, CudaDifArr, maxError, n * n);
-            // запись ошибки в переменную
-            cudaMemcpy(&error, maxError, sizeof(double), cudaMemcpyDeviceToHost);
-            error = std::abs(error);
+            cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal);
+
+            // обновление значений сетки (почему два раза - подробно описано в отчете)
+            for (int i = 0; i < 100; i++)
+            {
+                calculate<<<gridDim, blockDim, 0, stream>>>(CudaNewArr, CudaArr, n);
+                calculate<<<gridDim, blockDim, 0, stream>>>(CudaArr, CudaNewArr, n);
+            }
+            cudaStreamEndCapture(stream, &graph);
+            cudaGraphInstantiate(&instance, graph, NULL, NULL, 0);
+            graphCreated = true;
         }
 
-        double *copy = arr;
-        arr = arrNew;
-        arrNew = copy;
+        // запускаем граф
+        cudaGraphLaunch(instance, stream);
+
+        // вычитаем один массив из другого
+        getDifference<<<gridDim, blockDim, 0, stream>>>(CudaArr, CudaNewArr, CudaDifArr, n);
+
+        // находим новое значение ошибки
+        cub::DeviceReduce::Max(tempStorage, tempStorageBytes, CudaDifArr, maxError, n * n, stream);
+        cudaMemcpy(&error, maxError, sizeof(double), cudaMemcpyDeviceToHost);
+        error = std::abs(error);
+
+        // calculate<<<n - 1, n - 1>>>(CudaArr, CudaNewArr, n); // расчет матрицы
+
+        // // рaсчитываем ошибку
+        // if (cntIteration % 200 == 0)
+        // {
+        //     // вычисления разницы
+        //     getDifference<<<gridDim, blockDim>>>(CudaArr, CudaNewArr, CudaDifArr, n);
+        //     // нахождение максимума в разнице матрицы
+        //     cub::DeviceReduce::Max(tempStorage, tempStorageBytes, CudaDifArr, maxError, n * n);
+        //     // запись ошибки в переменную
+        //     cudaMemcpy(&error, maxError, sizeof(double), cudaMemcpyDeviceToHost);
+        //     error = std::abs(error);
+        // }
+
+        // double *copy = arr;
+        // arr = arrNew;
+        // arrNew = copy;
     }
 
     // вывод резуьтата
