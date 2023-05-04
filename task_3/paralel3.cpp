@@ -14,12 +14,12 @@ constexpr double ANGLE3 = 30;
 constexpr double ANGLE4 = 20;
 constexpr double negOne = -1;
 
-void printMatrix(double &arr, int n) {
+void printMatrix(double *arrPrint, int n) {
     for (size_t i = 0; i < n; i++)
     {
         for (size_t j = 0; j < n; j++)
         {
-            std::cout << arr[i * n + j] << " ";
+            std::cout << std::setw(4) << std::setprecision(3) << arrPrint[i * n + j] << " ";
         }
         std::cout << std::endl;
     }
@@ -88,7 +88,7 @@ int main(int argc, char *argv[])
     }
 
 
-    printMatrix(*arr);
+    // printMatrix(arr, n);
 
 // Копирование массивов arrNew, arr и inter на устройство для использования в расчетах
 #pragma acc enter data copyin(arrNew[:n * n], arr[:n * n], inter[:n * n])
@@ -131,6 +131,11 @@ int main(int argc, char *argv[])
         cntIteration++;
         cntUpdate++;
     }
+// #pragma acc update self(arr[:n*n])
+//         std::cout << std::endl;
+//         printMatrix(arr, n);
+//         std::cout << std::endl;
+
 
     std::cout << "iteration: " << cntIteration << " \n"
               << "error: " << error << "\n";
