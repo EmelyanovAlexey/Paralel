@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
                     error = fmax(error, fabs(arrNew[i * n + j] - arr[i * n + j]));
                 }
             }
-            if (cntIteration % 10 == 0)
+            if (cntIteration % 200 == 0)
             {
 #pragma acc update host(error) async(0)
 
