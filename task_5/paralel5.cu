@@ -98,8 +98,6 @@ int main(int argc, char* argv[]){
     cudaMemcpyToSymbol(add, &dt, sizeof(double));
     cudaMallocHost(&arr, sizeof(double) * n * n);
     cudaMallocHost(&arrNew, sizeof(double) * n * n);
-    // заполняем сетку
-	// fill(arr,arrNew,n);
 
     double *arr = new double[n * n];
     double *arrNew = new double[n * n];
