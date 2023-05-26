@@ -59,25 +59,10 @@ __global__ void substract(double* arr, double* arrNew, double* res, int n, int s
 
 // основное тело программы
 int main(int argc, char* argv[]){
-    // Объявление и инициализация переменных myRank и nRanks для определения ранга и общего числа процессов в MPI.
-    int myRank, nRanks;
-    // Инициализация MPI.
-    MPI_Init(&argc, &argv);
-    // Получение ранга текущего процесса.
-    MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
-    // Получение общего числа процессов.
-    MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
-    // Проверка условия, что число процессов должно быть от 1 до 2.
-    if(nRanks < 1 || nRanks > 2) {
-        printf("1-2");
-        exit(0);
-    }
-    // Установка текущего устройства CUDA, соответствующего рангу процесса.
-	cudaSetDevice(myRank);
-
 	// инициализация переменных
     double ACCURACY;
     const int n, MAX_ITERATION;
+    int cntCard = 1;
 
     // считываем с командной строки
     for (int arg = 1; arg < argc; arg++)
@@ -88,7 +73,25 @@ int main(int argc, char* argv[]){
             n = std::stoi(argv[arg]);
         if (arg == 3)
             MAX_ITERATION = std::stoi(argv[arg]);
+        if (arg == 4)
+            cntCard = std::stoi(argv[arg]);
     }
+
+    // Объявление и инициализация переменных myRank и nRanks для определения ранга и общего числа процессов в MPI.
+    int myRank, nRanks;
+    // Инициализация MPI.
+    MPI_Init(&argc, &argv);
+    // Получение ранга текущего процесса.
+    MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
+    // Получение общего числа процессов.
+    MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
+    // Проверка условия, что число процессов должно быть от 1 до cntCard.
+    if(nRanks < 1 || nRanks > cntCard) {
+        printf("go to limit card");
+        exit(0);
+    }
+    // Установка текущего устройства CUDA, соответствующего рангу процесса.
+	cudaSetDevice(myRank);
 
 	double *arr= NULL, *arrNew = NULL, *CudaArr = NULL, *CudaNewArr = NULL, *CudaDifArr;
 
