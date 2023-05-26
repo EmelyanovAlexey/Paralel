@@ -211,20 +211,6 @@ public:
 		outputSize = 1;
 	};
 
-	// // добавление слоя в сеть
-	// void pushBackLinear(std::string pathToWeights, std::string pathToBiases, int inSize, int outSize, bool activation){
-	// 	if(layers.size()==0) inputSize=inSize;
-	// 	outputSize = outSize;
-	// 	layers.push_back(NN(pathToWeights, pathToBiases, inSize, outSize, activation));
-	// };
-
-	// // запуск сети
-	// void myForward(std::string pathToFile, bool print){
-	// 	readInput(pathToFile);
-	// 	for(auto& layer : this->layers){array = layer.Linear(array);}
-	// 	if(print) printResult(array);
-	// };
-
 	// запуск базовой сети
 	void forward(std::string pathToFile, bool print){
 		readInput(pathToFile);

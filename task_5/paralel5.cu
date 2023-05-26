@@ -163,7 +163,7 @@ int main(int argc, char* argv[]){
 	cudaStreamCreateWithPriority(&stream_inner, cudaStreamDefault, leastPriority);
 
     dim3 threadPerBlock(32, 32);
-    dim3 blocksPerGrid(n / ((n<1024)? n:1024), sizeForOne);
+    dim3 blocksPerGrid(n / ((n<32*32)? n:32*32), sizeForOne);
 
 	double* d_error;
     cudaMalloc(&d_error, sizeof(double));
