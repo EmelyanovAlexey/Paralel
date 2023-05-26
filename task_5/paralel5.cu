@@ -201,7 +201,7 @@ int main(int argc, char* argv[]){
 		// верхняя граница
         // Проверяем, если текущий процесс не является первым (myRank != 0), то отправляем верхнюю границу массива CudaNewArr 
         // на предыдущий процесс и одновременно принимаем верхнюю границу от предыдущего процесса.
-        	if (myRank != 0){
+        if (myRank != 0){
 		    MPI_Sendrecv(CudaNewArr + n + 1, n - 2, MPI_DOUBLE, myRank - 1, 0, 
 				CudaNewArr + 1, n - 2, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 		}
