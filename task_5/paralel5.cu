@@ -16,6 +16,12 @@
 #include <cub/cub.cuh>
 #include <mpi.h>
 
+// углы нашей матрицы
+constexpr double ANGLE1 = 10;
+constexpr double ANGLE2 = 20;
+constexpr double ANGLE3 = 30;
+constexpr double ANGLE4 = 20;
+
 using namespace std;
 
 // функция, обновляющая граничные значения сетки
@@ -57,12 +63,13 @@ __global__ void substract(double* arr, double* arrNew, double* res, int n, int s
 	}
 }
 
+__constant__ double add;
+
 // основное тело программы
 int main(int argc, char* argv[]){
 	// инициализация переменных
     double ACCURACY;
-    const int n, MAX_ITERATION;
-    int cntCard = 1;
+    int n, MAX_ITERATION;
 
     // считываем с командной строки
     for (int arg = 1; arg < argc; arg++)
@@ -73,8 +80,6 @@ int main(int argc, char* argv[]){
             n = std::stoi(argv[arg]);
         if (arg == 3)
             MAX_ITERATION = std::stoi(argv[arg]);
-        if (arg == 4)
-            cntCard = std::stoi(argv[arg]);
     }
 
     // Объявление и инициализация переменных myRank и nRanks для определения ранга и общего числа процессов в MPI.
@@ -85,15 +90,15 @@ int main(int argc, char* argv[]){
     MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
     // Получение общего числа процессов.
     MPI_Comm_size(MPI_COMM_WORLD, &nRanks);
-    // Проверка условия, что число процессов должно быть от 1 до cntCard.
-    if(nRanks < 1 || nRanks > cntCard) {
-        printf("go to limit card");
+    // Проверка условия, что число процессов должно быть от 1 до 2.
+    if(nRanks < 1 || nRanks > 4) {
+        printf("go to limit 1 - 2");
         exit(0);
     }
     // Установка текущего устройства CUDA, соответствующего рангу процесса.
 	cudaSetDevice(myRank);
 
-	double *arr= NULL, *arrNew = NULL, *CudaArr = NULL, *CudaNewArr = NULL, *CudaDifArr;
+	double *arr= new double[n * n], *arrNew = new double[n * n], *CudaArr, *CudaNewArr, *CudaDifArr;
 
 	int cntIteration = 0; 
 	double dt = 10.0 / (n - 1), error = 1;
@@ -101,9 +106,6 @@ int main(int argc, char* argv[]){
     cudaMemcpyToSymbol(add, &dt, sizeof(double));
     cudaMallocHost(&arr, sizeof(double) * n * n);
     cudaMallocHost(&arrNew, sizeof(double) * n * n);
-
-    double *arr = new double[n * n];
-    double *arrNew = new double[n * n];
 
     // инициализация масива и копии массива
     for (int i = 1; i < n * n; i++)
