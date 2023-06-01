@@ -13,10 +13,6 @@
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 
-#define WITH_ACTIVATION true
-#define WITHOUT_ACTIVATION false
-#define printResult true
-#define DONT_PRINT false
 #define IDX2C(i,j,ld) (((j)*(ld))+(i))
 
 // макросы для проверки ошибок CUDA и CUBLAS 
@@ -214,11 +210,11 @@ public:
 	// запуск базовой сети
 	void forward(std::string pathToFile, bool print){
 		readInput(pathToFile);
-		NN layer1("./data/weights1.bin", "./data/biases1.bin", 1024, 256, WITH_ACTIVATION);
+		NN layer1("./data/weights1.bin", "./data/biases1.bin", 1024, 256, true);
 		array = layer1.Linear(array);
-		NN layer2("./data/weights2.bin", "./data/biases2.bin", 256, 16, WITH_ACTIVATION);
+		NN layer2("./data/weights2.bin", "./data/biases2.bin", 256, 16, true);
 		array = layer2.Linear(array);
-		NN layer3("./data/weights3.bin", "./data/biases3.bin", 16, 1, WITH_ACTIVATION);
+		NN layer3("./data/weights3.bin", "./data/biases3.bin", 16, 1, true);
 		array = layer3.Linear(array);
 		if(print) printResult(array);
 	}
@@ -232,6 +228,6 @@ public:
 int main()
 {
 	Net model;
-	model.forward("./data/inputs1.bin", printResult);
+	model.forward("./data/inputs1.bin", true);
 	return 0;
 }
